@@ -1,0 +1,201 @@
+@startuml
+
+package "app" {
+  class App <<component>> {
+    title: Signal<string>
+  }
+}
+
+package "news.application" {
+  class NewsStore {
+    - sourcesSignal: Signal<Source[]>
+    - articlesSignal: Signal<Record<string, Article[]>>
+    - newsApi: NewsApi
+    - logoApi: LogoDevApi
+    - _currentSource: Source
+    + sources: Signal<Source[]>
+    + articles: Signal<Record<string, Article[]>>
+    + currentSourceArticles: Signal<Article[]>
+    + loadSources()
+    + loadArticlesForCurrentSource()
+    + get currentSource(): Source
+    + set currentSource(Source)
+  }
+}
+
+package "shared.domain.model" {
+  class DateTime {
+    - date: Date
+    + toString(): string
+    + toLocaleDateString(): string
+    + toLocaleTimeString(): string
+    + toDate(): Date
+  }
+  class Url {
+    - url: string
+    + {static} isValid(value: string): boolean
+    + toString(): string
+  }
+}
+
+package "news.domain.model" {
+  class Article {
+    author: string
+    title: string
+    description: string
+    url: Url
+    urlToImage: Url
+    urlAsString: string
+    urlToImageAsString: string
+    publishedAt: DateTime
+    source: Source
+    + updateSourceInformation(source: Source)
+  }
+  class Source {
+    id: string
+    name: string
+    description: string
+    url: Url
+    urlToLogo: Url
+    category: string
+    language: string
+    country: string
+    urlAsString: string
+    urlToLogoAsString: string
+  }
+}
+
+package "news.infrastructure" {
+  class NewsApi {
+    - baseUrl: string
+    - newsEndpoint: string
+    - sourcesEndpoint: string
+    - apiKey: string
+    - http: HttpClient
+    - sourceAssembler: SourceAssembler
+    - articleAssembler: ArticleAssembler
+    + getSources(): Observable<Source[]>
+    + getArticlesBySourceId(sourceId: string): Observable<Article[]>
+  }
+  class ArticleAssembler {
+    - logoApi: LogoDevApi
+    + toEntityFromResource(resource: ArticleResource): Article
+    + toEntitiesFromResponse(response: TopHeadlinesResponse): Article[]
+  }
+  class SourceAssembler {
+    - logoApi: LogoDevApi
+    + toEntityFromResource(resource: SourceResource): Source
+    + toEntitiesFromResponse(response: SourcesResponse): Source[]
+  }
+  interface TopHeadlinesResponse {
+    status: string
+    totalResults: number
+    articles: ArticleResource[]
+  }
+  interface ArticleResource {
+    source: { id: string | null; name: string }
+    author: string | null
+    title: string
+    description: string | null
+    url: string
+    urlToImage: string | null
+    publishedAt: string
+  }
+  interface SourcesResponse {
+    status: string
+    sources: SourceResource[]
+  }
+  interface SourceResource {
+    id: string
+    name: string
+    description: string
+    url: string
+    urlToLogo: string
+    category: string
+    language: string
+    country: string
+  }
+}
+
+package "news.presentation.components" {
+  class ArticleItem <<component>> {
+    article: Article (input)
+    + shareArticle()
+  }
+  class ArticleList <<component>> {
+    articles: Article[] (input)
+  }
+  class SourceItem <<component>> {
+    source: Source (input)
+    sourceSelected: Source (output)
+    + emitSourceSelectedEvent()
+  }
+  class SourceList <<component>> {
+    sources: Source[] (input)
+    sourceSelected: Source (output)
+    + emitSourceSelectedEvent(source: Source)
+  }
+  class SourceSummary <<component>> {
+    source: Source
+  }
+}
+
+package "shared.infrastructure" {
+  class LogoDevApi {
+    baseUrl: string
+    + getUrlToLogo(url: string)
+  }
+}
+
+package "shared.presentation.components" {
+  class Layout <<component>> {
+    store: NewsStore
+    sources: Signal<Source[]>
+    articles: Signal<Article[]>
+    + ngOnInit()
+    + updateArticlesBySource(source: Source)
+  }
+  class LanguageSwitcher <<component>> {
+    currentLang: string
+    languages: string[]
+    + useLanguage(language: string)
+  }
+  class Footer <<component>> {
+  }
+}
+
+' Relationships
+App --> Layout : «composes»
+Layout --> SourceList : «composes»
+Layout --> ArticleList : «composes»
+Layout --> LanguageSwitcher : «composes»
+Layout --> Footer : «composes»
+SourceList --> SourceItem : «composes»
+ArticleList --> ArticleItem : «composes»
+NewsStore --> NewsApi : «uses»
+NewsStore --> LogoDevApi : «uses»
+NewsStore --> Source : «uses»
+NewsStore --> Article : «uses»
+NewsApi --> SourceAssembler : «uses»
+NewsApi --> ArticleAssembler : «uses»
+NewsApi --> Source : «uses»
+NewsApi --> Article : «uses»
+ArticleAssembler --> LogoDevApi : «uses»
+SourceAssembler --> LogoDevApi : «uses»
+ArticleAssembler --> Article : «creates»
+ArticleAssembler ..> ArticleResource : «transforms»
+ArticleAssembler ..> TopHeadlinesResponse : «transforms»
+SourceAssembler --> Source : «creates»
+SourceAssembler ..> SourceResource : «transforms»
+SourceAssembler ..> SourcesResponse : «transforms»
+ArticleItem --> Article : «input»
+ArticleItem ..> SourceSummary : «opens»
+ArticleList --> Article : «input»
+SourceItem --> Source : «input»
+SourceList --> Source : «input»
+SourceSummary --> Source : «uses»
+Layout --> NewsStore : «uses»
+Layout --> Source : «uses»
+Layout --> Article : «uses»
+
+@enduml
